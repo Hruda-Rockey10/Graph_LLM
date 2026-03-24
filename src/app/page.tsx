@@ -13,6 +13,7 @@ export default function Home() {
   const [dimGranularNodes, setDimGranularNodes] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [statusText, setStatusText] = useState("Ready");
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
 
   const loadGraph = useCallback(async (focusId?: string) => {
     setGraphLoading(true);
@@ -111,15 +112,16 @@ export default function Home() {
           <section className="relative min-w-0 flex-1 border-r border-gray-200 bg-[#f9fcff] p-2">
             <div className="absolute left-4 top-4 z-20 flex gap-2">
               <button
-                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700"
+                onClick={() => setIsChatMinimized((prev) => !prev)}
+                className="rounded-md border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
               >
-                Minimize
+                {isChatMinimized ? "Expand Chat" : "Collapse Chat"}
               </button>
               <button
                 onClick={() => setDimGranularNodes((prev) => !prev)}
-                className="rounded-md bg-black px-3 py-2 text-xs font-medium text-white"
+                className="rounded-md bg-black px-3 py-1 text-xs font-medium text-white shadow-sm hover:bg-gray-800"
               >
-                {dimGranularNodes ? "Show Granular Overlay" : "Hide Granular Overlay"}
+                {dimGranularNodes ? "Show All Details" : "Focus Main Flow"}
               </button>
             </div>
 
@@ -139,7 +141,9 @@ export default function Home() {
             )}
           </section>
 
-          <ChatPanel onAsk={ask} messages={messages} loading={chatLoading} />
+          <aside className={`transition-all duration-300 ease-in-out ${isChatMinimized ? "w-0 opacity-0 overflow-hidden" : "w-[400px]"}`}>
+            <ChatPanel onAsk={ask} messages={messages} loading={chatLoading} />
+          </aside>
         </div>
       </div>
     </main>
