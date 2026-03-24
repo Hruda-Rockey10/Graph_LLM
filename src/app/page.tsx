@@ -29,7 +29,7 @@ export default function Home() {
       if (focusId) {
         const found = payload.nodes.find((n: GraphNode) => {
           const p = n.properties || {};
-          return [p.id, p.salesOrder, p.deliveryDocument, p.billingDocument, p.accountingDocument, p.customerId, p.material].map(String).includes(String(focusId));
+          return [p.id, p.salesOrder, p.deliveryDocument, p.billingDocument, p.accountingDocument, p.customerId, p.material, p.referenceDocument].map(String).includes(String(focusId));
         });
         if (found) setSelectedNode(found);
       }
@@ -94,6 +94,11 @@ export default function Home() {
     return `${graph.nodes.length} nodes | ${graph.edges.length} edges`;
   }, [graph]);
 
+  const selectedNodeConnections = useMemo(() => {
+    if (!selectedNode || !graph) return 0;
+    return graph.edges.filter(e => e.source === selectedNode.id || e.target === selectedNode.id).length;
+  }, [selectedNode, graph]);
+
   return (
     <main className="h-screen w-screen bg-[#f6f8fb] p-3">
       <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -149,7 +154,10 @@ export default function Home() {
                       <span className="text-xs font-semibold text-gray-800 break-all">{String(val)}</span>
                     </div>
                   ))}
-                  <p className="text-[10px] italic text-gray-400 mt-4">ID: {selectedNode.id}</p>
+                  <div className="pt-2">
+                    <span className="text-[11px] font-semibold text-gray-500">Connections: {selectedNodeConnections}</span>
+                  </div>
+                  <p className="text-[10px] italic text-gray-400 mt-2">ID: {selectedNode.id}</p>
                 </div>
               </div>
             )}
