@@ -1,65 +1,147 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChatPanel } from "@/components/ChatPanel";
+import { GraphView } from "@/components/GraphView";
+import type { ChatMessage, GraphPayload } from "@/lib/types";
 
 export default function Home() {
+  const [graph, setGraph] = useState<GraphPayload | null>(null);
+  const [focus, setFocus] = useState<string | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [dimGranularNodes, setDimGranularNodes] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [statusText, setStatusText] = useState("Ready");
+
+  const loadGraph = useCallback(async (focusId?: string) => {
+    setGraphLoading(true);
+    try {
+      const query = focusId ? `?focus=${encodeURIComponent(focusId)}` : "";
+      const res = await fetch(`/api/graph${query}`);
+      const payload = await res.json();
+      if (!res.ok || !payload.ok) throw new Error(payload.error || "Could not load graph");
+      setGraph({ nodes: payload.nodes, edges: payload.edges });
+    } catch (error) {
+      setStatusText(error instanceof Error ? error.message : "Graph load failed");
+    } finally {
+      setGraphLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadGraph().catch(() => null);
+  }, [loadGraph]);
+
+  const ask = useCallback(async (question: string) => {
+    setChatLoading(true);
+    setMessages((prev) => [...prev, { role: "user", content: question }]);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.ok) throw new Error(payload.error || "Query failed");
+      setMessages((prev) => [...prev, { role: "assistant", content: payload.answer }]);
+      setStatusText("Query executed");
+
+      const doc = question.match(/\b\d{6,12}\b/)?.[0];
+      if (doc) {
+        setFocus(doc);
+        await loadGraph(doc);
+      }
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: error instanceof Error ? error.message : "Failed to process question.",
+        },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [loadGraph]);
+
+  async function ingestNow() {
+    setStatusText("Ingesting SAP dataset into Neo4j...");
+    try {
+      const res = await fetch("/api/ingest", { method: "POST" });
+      const payload = await res.json();
+      if (!res.ok || !payload.ok) throw new Error(payload.error || "Ingestion failed");
+      setStatusText(`Ingestion completed. Sales orders: ${payload.counts?.salesHeaders ?? 0}`);
+      await loadGraph(focus || undefined);
+    } catch (error) {
+      setStatusText(error instanceof Error ? error.message : "Ingestion failed");
+    }
+  }
+
+  const graphSummary = useMemo(() => {
+    if (!graph) return "No graph loaded";
+    return `${graph.nodes.length} nodes | ${graph.edges.length} edges`;
+  }, [graph]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="h-screen w-screen bg-[#f6f8fb] p-3">
+      <div className="flex h-full flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
+        <header className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
+          <div>
+            <p className="text-[14px] text-gray-500">Mapping / <span className="font-semibold text-gray-900">Order to Cash</span></p>
+            <p className="text-xs text-gray-500">{statusText} - {graphSummary}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => loadGraph(focus || undefined)}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Refresh
+            </button>
+            <button
+              onClick={ingestNow}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              Ingest
+            </button>
+          </div>
+        </header>
+
+        <div className="flex min-h-0 flex-1">
+          <section className="relative min-w-0 flex-1 border-r border-gray-200 bg-[#f9fcff] p-2">
+            <div className="absolute left-4 top-4 z-20 flex gap-2">
+              <button
+                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700"
+              >
+                Minimize
+              </button>
+              <button
+                onClick={() => setDimGranularNodes((prev) => !prev)}
+                className="rounded-md bg-black px-3 py-2 text-xs font-medium text-white"
+              >
+                {dimGranularNodes ? "Show Granular Overlay" : "Hide Granular Overlay"}
+              </button>
+            </div>
+
+            {graphLoading ? (
+              <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                Loading graph...
+              </div>
+            ) : (
+              <GraphView
+                graph={graph}
+                dimGranularNodes={dimGranularNodes}
+                onNodeClick={(id) => {
+                  setFocus(id);
+                  loadGraph(id).catch(() => null);
+                }}
+              />
+            )}
+          </section>
+
+          <ChatPanel onAsk={ask} messages={messages} loading={chatLoading} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dodge AI - SAP O2C Graph + Chat
 
-## Getting Started
+This project implements the assignment with:
+- Next.js (App Router)
+- Cytoscape graph visualization
+- Neo4j + Cypher graph storage/query
+- OpenRouter API for natural-language query planning and response generation
 
-First, run the development server:
+## Folder assumptions
+
+- App folder: `dodge-ai-app`
+- Dataset folder (already present): `../sap-o2c-data` relative to app root
+
+## Setup
+
+1. Copy env file:
+
+```bash
+cp .env.example .env.local
+```
+
+2. Fill Neo4j and OpenRouter values in `.env.local`.
+
+3. Install dependencies:
+
+```bash
+npm install
+```
+
+4. Start app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Usage
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Open `http://localhost:3000`.
+2. Click **Ingest** to load SAP O2C JSONL data into Neo4j.
+3. Explore graph with node click expansion.
+4. Ask questions in chat panel, for example:
+   - Which products are associated with the highest number of billing documents?
+   - Trace the full flow for billing document 90504298.
+   - Identify sales orders with broken or incomplete flows.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## API routes
 
-## Learn More
+- `POST /api/ingest` - ingest dataset into Neo4j
+- `GET /api/graph?focus=<id>` - fetch graph or local neighborhood
+- `POST /api/chat` - NL query -> Cypher -> grounded answer
+- `GET /api/health` - Neo4j connectivity check
 
-To learn more about Next.js, take a look at the following resources:
+## Guardrails
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Off-topic queries are rejected with a domain-only response.
+- Generated Cypher is blocked if it contains write operations.
+- Responses are generated from executed query rows only.
