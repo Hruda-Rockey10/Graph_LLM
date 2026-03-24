@@ -27,11 +27,28 @@ export default function Home() {
       setGraph({ nodes: payload.nodes, edges: payload.edges });
 
       if (focusId) {
-        const found = payload.nodes.find((n: GraphNode) => {
+        const matches = payload.nodes.filter((n: GraphNode) => {
           const p = n.properties || {};
           return [p.id, p.salesOrder, p.deliveryDocument, p.billingDocument, p.accountingDocument, p.customerId, p.material, p.referenceDocument].map(String).includes(String(focusId));
         });
-        if (found) setSelectedNode(found);
+
+        if (matches.length > 0) {
+          const priority: Record<string, number> = {
+            JournalEntry: 1,
+            SalesOrder: 2,
+            BillingDocument: 3,
+            Delivery: 4,
+            Payment: 5,
+            Product: 6,
+            Customer: 7,
+            Plant: 8,
+            SalesOrderItem: 9,
+            BillingItem: 10,
+            DeliveryItem: 11
+          };
+          matches.sort((a: GraphNode, b: GraphNode) => (priority[a.type] || 99) - (priority[b.type] || 99));
+          setSelectedNode(matches[0]);
+        }
       }
     } catch (error) {
       setStatusText(error instanceof Error ? error.message : "Graph load failed");
