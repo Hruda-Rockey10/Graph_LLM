@@ -6,6 +6,7 @@ import type { GraphPayload } from "@/lib/types";
 
 type Props = {
   graph: GraphPayload | null;
+  selectedNodeId?: string | null;
   dimGranularNodes: boolean;
   onNodeClick: (nodeId: string) => void;
 };
@@ -24,7 +25,7 @@ const NODE_COLORS: Record<string, string> = {
   Entity: "#9aa6b2",
 };
 
-export function GraphView({ graph, dimGranularNodes, onNodeClick }: Props) {
+export function GraphView({ graph, selectedNodeId, dimGranularNodes, onNodeClick }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
 
@@ -32,10 +33,10 @@ export function GraphView({ graph, dimGranularNodes, onNodeClick }: Props) {
     if (!graph) return [];
     const nodes = graph.nodes.map((node) => ({
       data: { ...node, color: NODE_COLORS[node.type] || NODE_COLORS.Entity },
-      classes:
-        dimGranularNodes && ["SalesOrderItem", "DeliveryItem", "BillingItem"].includes(node.type)
-          ? "granular"
-          : "",
+      classes: [
+        dimGranularNodes && ["SalesOrderItem", "DeliveryItem", "BillingItem"].includes(node.type) ? "granular" : "",
+        selectedNodeId === node.id ? "selected" : ""
+      ].join(" "),
     }));
 
     const edges = graph.edges.map((edge) => ({
@@ -43,7 +44,7 @@ export function GraphView({ graph, dimGranularNodes, onNodeClick }: Props) {
     }));
 
     return [...nodes, ...edges];
-  }, [graph, dimGranularNodes]);
+  }, [graph, dimGranularNodes, selectedNodeId]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -58,29 +59,47 @@ export function GraphView({ graph, dimGranularNodes, onNodeClick }: Props) {
             style: {
               "background-color": "data(color)",
               label: "data(label)",
-              color: "#6f7f90",
-              "font-size": "9px",
+              color: "#4a5568",
+              "font-size": "8px",
+              "text-valign": "bottom",
+              "text-margin-y": 4,
               "text-wrap": "none",
-              width: 12,
-              height: 12,
+              width: 10,
+              height: 10,
             },
           },
           {
             selector: "edge",
             style: {
-              width: 1.1,
-              "line-color": "#b8daf3",
-              "target-arrow-color": "#b8daf3",
+              width: 1,
+              "line-color": "#cbd5e1",
+              "target-arrow-color": "#cbd5e1",
               "curve-style": "bezier",
               "target-arrow-shape": "triangle",
-              "arrow-scale": 0.45,
-              opacity: 0.85,
+              "arrow-scale": 0.4,
+              opacity: 0.6,
+              label: "data(type)",
+              "font-size": "6px",
+              color: "#94a3b8",
+              "text-rotation": "autorotate",
+              "text-margin-y": -5,
             },
           },
           {
             selector: "node.granular",
             style: {
-              opacity: 0.2,
+              opacity: 0.15,
+            },
+          },
+          {
+            selector: "node.selected",
+            style: {
+              width: 16,
+              height: 16,
+              "border-width": 2,
+              "border-color": "#2d3748",
+              "font-weight": "bold",
+              "font-size": "10px",
             },
           },
         ],
@@ -95,8 +114,8 @@ export function GraphView({ graph, dimGranularNodes, onNodeClick }: Props) {
     const cy = cyRef.current;
     cy.elements().remove();
     cy.add(elements);
-    cy.layout({ name: "cose", animate: false, nodeRepulsion: 26000, idealEdgeLength: 120 }).run();
-    cy.fit(undefined, 30);
+    cy.layout({ name: "cose", animate: false, nodeRepulsion: 28000, idealEdgeLength: 140 }).run();
+    cy.fit(undefined, 40);
   }, [elements, onNodeClick]);
 
   return <div ref={containerRef} className="h-full w-full rounded-xl bg-[#fcfdff]" />;

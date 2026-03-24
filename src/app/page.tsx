@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChatPanel } from "@/components/ChatPanel";
 import { GraphView } from "@/components/GraphView";
-import type { ChatMessage, GraphPayload } from "@/lib/types";
+import type { ChatMessage, GraphNode, GraphPayload } from "@/lib/types";
 
 export default function Home() {
   const [graph, setGraph] = useState<GraphPayload | null>(null);
@@ -15,6 +15,8 @@ export default function Home() {
   const [statusText, setStatusText] = useState("Ready");
   const [isChatMinimized, setIsChatMinimized] = useState(false);
 
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+
   const loadGraph = useCallback(async (focusId?: string) => {
     setGraphLoading(true);
     try {
@@ -23,6 +25,14 @@ export default function Home() {
       const payload = await res.json();
       if (!res.ok || !payload.ok) throw new Error(payload.error || "Could not load graph");
       setGraph({ nodes: payload.nodes, edges: payload.edges });
+
+      if (focusId) {
+        const found = payload.nodes.find((n: GraphNode) => {
+          const p = n.properties || {};
+          return [p.id, p.salesOrder, p.deliveryDocument, p.billingDocument, p.accountingDocument, p.customerId, p.material].map(String).includes(String(focusId));
+        });
+        if (found) setSelectedNode(found);
+      }
     } catch (error) {
       setStatusText(error instanceof Error ? error.message : "Graph load failed");
     } finally {
@@ -95,13 +105,13 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => loadGraph(focus || undefined)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
               Refresh
             </button>
             <button
               onClick={ingestNow}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
               Ingest
             </button>
@@ -125,6 +135,25 @@ export default function Home() {
               </button>
             </div>
 
+            {selectedNode && (
+              <div className="absolute right-4 top-4 z-20 w-80 max-h-[80%] overflow-auto rounded-xl border border-gray-200 bg-white p-4 shadow-xl animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="flex items-center justify-between border-b pb-2 mb-3">
+                  <h3 className="text-lg font-bold text-gray-900">{selectedNode.type}</h3>
+                  <button onClick={() => setSelectedNode(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Metadata</p>
+                  {Object.entries(selectedNode.properties || {}).map(([key, val]) => (
+                    <div key={key} className="flex flex-col border-b border-gray-50 pb-1">
+                      <span className="text-[10px] font-medium text-gray-500 lowercase">{key}</span>
+                      <span className="text-xs font-semibold text-gray-800 break-all">{String(val)}</span>
+                    </div>
+                  ))}
+                  <p className="text-[10px] italic text-gray-400 mt-4">ID: {selectedNode.id}</p>
+                </div>
+              </div>
+            )}
+
             {graphLoading ? (
               <div className="flex h-full items-center justify-center text-sm text-gray-500">
                 Loading graph...
@@ -132,6 +161,7 @@ export default function Home() {
             ) : (
               <GraphView
                 graph={graph}
+                selectedNodeId={selectedNode?.id}
                 dimGranularNodes={dimGranularNodes}
                 onNodeClick={(id) => {
                   setFocus(id);
