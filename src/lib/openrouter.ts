@@ -19,38 +19,58 @@ async function callOpenRouter(messages: OpenRouterMessage[]) {
     throw new Error("Missing OPENROUTER_API_KEY");
   }
 
-  const model = process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
+  const primaryModel = process.env.OPENROUTER_MODEL || "stepfun/step-3.5-flash:free";
+  const backupModel = process.env.OPENROUTER_BACKUP_MODEL;
   const siteUrl = process.env.OPENROUTER_SITE_URL || "http://localhost:3000";
   const siteName = process.env.OPENROUTER_SITE_NAME || "Dodge AI";
 
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": siteUrl,
-      "X-Title": siteName,
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages,
-    }),
-  });
+  const modelsToTry = [primaryModel];
+  if (backupModel) modelsToTry.push(backupModel);
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenRouter error: ${res.status} ${text}`);
+  let lastError: Error | null = null;
+
+  for (const model of modelsToTry) {
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": siteUrl,
+          "X-Title": siteName,
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+          messages,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`OpenRouter (${model}) error: ${res.status} ${text}`);
+      }
+
+      const payload = await res.json();
+      const content = payload?.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error(`OpenRouter (${model}) returned empty content`);
+      }
+
+      return content as string;
+    } catch (error) {
+      console.error(`Attempt with ${model} failed:`, error);
+      lastError = error as Error;
+      // If there's another model to try (the backup), continue the loop
+      if (modelsToTry.indexOf(model) < modelsToTry.length - 1) {
+        console.log(`Retrying with backup model: ${backupModel}`);
+        continue;
+      }
+    }
   }
 
-  const payload = await res.json();
-  const content = payload?.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error("OpenRouter returned empty content");
-  }
-
-  return content as string;
+  throw lastError || new Error("OpenRouter call failed");
 }
 
 export async function createCypherPlan(question: string): Promise<QueryPlan> {
