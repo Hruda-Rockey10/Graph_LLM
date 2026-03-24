@@ -82,13 +82,9 @@ LIMIT 200
       records: Array<{ get: (key: string) => Path }>;
     }>(
       `
-MATCH p=(so:SalesOrder)-[:HAS_ITEM]->(si:SalesOrderItem)
-OPTIONAL MATCH p2=(si)-[:FOR_PRODUCT]->(prod:Product)
-OPTIONAL MATCH p3=(si)-[:FROM_PLANT]->(plant:Plant)
-OPTIONAL MATCH p4=(si)-[:DELIVERED_AS]->(di:DeliveryItem)-[:BILLED_AS]->(bi:BillingItem)-[:IN_BILLING]->(b:BillingDocument)
-OPTIONAL MATCH p5=(b)-[:POSTED_TO]->(j:JournalEntry)-[:SETTLED_BY]->(pay:Payment)
-RETURN p, p2, p3, p4, p5
-LIMIT 200
+MATCH p=(n)-[r]->(m)
+RETURN p
+LIMIT 3000
 `,
     );
   }
