@@ -1,5 +1,6 @@
 import { createCypherPlan, summarizeAnswer } from "./src/lib/openrouter";
 import { runCypher } from "./src/lib/neo4j";
+import { serializeRows } from "./src/lib/graph";
 import * as dotenv from "dotenv";
 
 dotenv.config();
@@ -16,7 +17,11 @@ async function testFinalChat() {
     try {
       const plan = await createCypherPlan(q);
       console.log("Plan:", plan.cypher);
-      const rows = await runCypher(plan.cypher, plan.params);
+      const result = await runCypher<{ records: Array<{ toObject: () => Record<string, unknown> }> }>(
+        plan.cypher,
+        plan.params
+      );
+      const rows = serializeRows(result.records);
       const answer = await summarizeAnswer(q, rows);
       console.log("Answer:", answer);
     } catch (e) {
