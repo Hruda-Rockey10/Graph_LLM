@@ -1,0 +1,9 @@
+customer,companyCode,accountingClerk,accountingClerkFaxNumber,accountingClerkInternetAddress,accountingClerkPhoneNumber,alternativePayerAccount,paymentBlockingReason,paymentMethodsList,paymentTerms,reconciliationAccount,deletionIndicator,customerAccountGroup
+310000108,ABCD,,,,,,,,,15500010,false,Y101
+310000109,ABCD,,,,,,,,,15500010,false,Y101
+320000082,ABCD,,,,,,,,,15500020,true,Y102
+320000083,ABCD,,,,,,,,,15500020,true,Y102
+320000085,ABCD,,,,,,,,,15500020,true,Y102
+320000088,ABCD,,,,,,,,,15500020,true,Y102
+320000107,ABCD,,,,,,,,Z001,15500020,true,Y102
+320000108,ABCD,,,,,,,,Z001,15500020,true,Y102
